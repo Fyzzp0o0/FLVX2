@@ -1,0 +1,17 @@
+# 二进制与构建产物
+/flvx2-bin
+/flvx2
+/dist/
+*.exe
+
+# 日志
+logs/
+
+# 本地环境
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
