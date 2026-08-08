@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Fyzzp0o0/FLVX2/internal/jwt"
 	"github.com/Fyzzp0o0/FLVX2/internal/model"
@@ -58,7 +57,6 @@ type GostDto struct {
 
 // Hub 管理节点/管理员会话、广播与命令下发
 type Hub struct {
-	pool   *pgxpool.Pool
 	nodes  NodeStore
 	jwtKey string
 	crypto *Crypto
@@ -79,16 +77,19 @@ type commandResponse struct {
 	ReqID   string          `json:"requestId"`
 }
 
-func NewHub(pool *pgxpool.Pool, nodes NodeStore, jwtKey string) *Hub {
+func NewHub(jwtKey string) *Hub {
 	return &Hub{
-		pool:          pool,
-		nodes:         nodes,
 		jwtKey:        jwtKey,
 		crypto:        NewCrypto(),
 		nodeSessions:  make(map[int64]*client),
 		adminSessions: make(map[int64]map[*client]bool),
 		pending:       make(map[string]chan commandResponse),
 	}
+}
+
+// SetNodeStore 注入节点存取实现(NodeService 依赖 Hub,构造后注入避免初始化环)
+func (h *Hub) SetNodeStore(nodes NodeStore) {
+	h.nodes = nodes
 }
 
 // HandleWS /system-info 入口(type=1 节点 secret 鉴权;type=0 管理员 JWT 鉴权)

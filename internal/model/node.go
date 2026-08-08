@@ -76,3 +76,25 @@ type ChainTunnel struct {
 	Inx       int64  `json:"inx"`
 	Protocol  string `json:"protocol"`
 }
+
+// SpeedLimit 对应 speed_limit 表
+type SpeedLimit struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	Speed       int64  `json:"speed"`
+	TunnelID    int64  `json:"tunnel_id"`
+	TunnelName  string `json:"tunnel_name"`
+	CreatedTime int64  `json:"created_time"`
+	UpdatedTime int64  `json:"updated_time"`
+	Status      int64  `json:"status"`
+}
+
+// StatisticsFlow 对应 statistics_flow 表
+type StatisticsFlow struct {
+	ID          int64  `json:"id"`
+	UserID      int64  `json:"user_id"`
+	Flow        int64  `json:"flow"`
+	TotalFlow   int64  `json:"total_flow"`
+	Time        string `json:"time"`
+	CreatedTime int64  `json:"created_time"`
+}

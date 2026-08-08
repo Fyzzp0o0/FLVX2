@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"strings"
 
@@ -15,14 +14,24 @@ import (
 
 // Handler 聚合各业务 handler
 type Handler struct {
-	users *service.UserService
-	flows *service.FlowService
-	hub   *ws.Hub
-	secret string
+	users      *service.UserService
+	nodes      *service.NodeService
+	tunnels    *service.TunnelService
+	forwards   *service.ForwardService
+	speedLimits *service.SpeedLimitService
+	cfg        *service.ViteConfigService
+	flows      *service.FlowService
+	hub        *ws.Hub
+	secret     string
 }
 
-func NewHandler(users *service.UserService, flows *service.FlowService, hub *ws.Hub, secret string) *Handler {
-	return &Handler{users: users, flows: flows, hub: hub, secret: secret}
+func NewHandler(users *service.UserService, nodes *service.NodeService, tunnels *service.TunnelService,
+	forwards *service.ForwardService, speedLimits *service.SpeedLimitService, cfg *service.ViteConfigService,
+	flows *service.FlowService, hub *ws.Hub, secret string) *Handler {
+	return &Handler{
+		users: users, nodes: nodes, tunnels: tunnels, forwards: forwards,
+		speedLimits: speedLimits, cfg: cfg, flows: flows, hub: hub, secret: secret,
+	}
 }
 
 // ---- UserController /api/v1/user ----
@@ -42,12 +51,7 @@ func (h *Handler) Login(c *gin.Context) {
 	}
 	u, requireChange, err := h.users.Login(c.Request.Context(), req.Username, req.Password, req.CaptchaID)
 	if err != nil {
-		switch {
-		case errors.Is(err, service.ErrCaptchaRequired):
-			c.JSON(http.StatusOK, errMsg(err.Error()))
-		default:
-			c.JSON(http.StatusOK, errMsg(err.Error()))
-		}
+		c.JSON(http.StatusOK, errMsg(err.Error()))
 		return
 	}
 	token, err := jwt.GenerateToken(h.secret, u.ID, u.User, u.RoleID)
@@ -83,10 +87,139 @@ func (h *Handler) Register(c *gin.Context) {
 	c.JSON(http.StatusOK, ok(nil))
 }
 
+type createUserReq struct {
+	User          string `json:"user" binding:"required"`
+	Pwd           string `json:"pwd" binding:"required"`
+	Flow          int64  `json:"flow" binding:"required"`
+	Num           int64  `json:"num" binding:"required"`
+	ExpTime       int64  `json:"expTime" binding:"required"`
+	FlowResetTime int64  `json:"flowResetTime" binding:"required"`
+	Status        *int64 `json:"status"`
+}
+
+// UserCreate 管理员建用户
+func (h *Handler) UserCreate(c *gin.Context) {
+	var req createUserReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	if err := h.users.CreateUser(c.Request.Context(), req.User, req.Pwd, req.Flow, req.Num, req.ExpTime, req.FlowResetTime); err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(nil))
+}
+
+// UserList 用户列表(管理员)
+func (h *Handler) UserList(c *gin.Context) {
+	list, err := h.users.ListUsers(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(list))
+}
+
+type updateUserReq struct {
+	ID            int64  `json:"id" binding:"required"`
+	User          string `json:"user" binding:"required"`
+	Pwd           string `json:"pwd"`
+	Flow          int64  `json:"flow" binding:"required"`
+	Num           int64  `json:"num" binding:"required"`
+	ExpTime       int64  `json:"expTime" binding:"required"`
+	FlowResetTime int64  `json:"flowResetTime" binding:"required"`
+	Status        *int64 `json:"status"`
+}
+
+// UserUpdate 更新用户(管理员)
+func (h *Handler) UserUpdate(c *gin.Context) {
+	var req updateUserReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	if err := h.users.UpdateUser(c.Request.Context(), req.ID, req.User, req.Pwd, req.Flow, req.Num, req.ExpTime, req.FlowResetTime); err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(nil))
+}
+
+// UserDelete 删除用户(管理员)
+func (h *Handler) UserDelete(c *gin.Context) {
+	var req struct {
+		ID int64 `json:"id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.ID == 0 {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	if err := h.users.DeleteUser(c.Request.Context(), req.ID); err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(nil))
+}
+
+// UserReset 重置流量(管理员;type==1 用户,否则 user_tunnel)
+func (h *Handler) UserReset(c *gin.Context) {
+	var req struct {
+		ID   int64 `json:"id" binding:"required"`
+		Type int   `json:"type" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	if err := h.users.ResetFlow(c.Request.Context(), req.ID, req.Type); err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(nil))
+}
+
+// UserPackage 当前用户套餐
+func (h *Handler) UserPackage(c *gin.Context) {
+	uid, _, _ := currentUser(c)
+	pkg, err := h.users.Package(c.Request.Context(), uid)
+	if err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(pkg))
+}
+
+type changePasswordReq struct {
+	NewUsername      string `json:"newUsername" binding:"required"`
+	CurrentPassword  string `json:"currentPassword" binding:"required"`
+	NewPassword      string `json:"newPassword" binding:"required"`
+	ConfirmPassword  string `json:"confirmPassword" binding:"required"`
+}
+
+// UserUpdatePassword 修改用户名+密码
+func (h *Handler) UserUpdatePassword(c *gin.Context) {
+	var req changePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	if req.NewPassword != req.ConfirmPassword {
+		c.JSON(http.StatusOK, errMsg("新密码和确认密码不匹配"))
+		return
+	}
+	uid, _, _ := currentUser(c)
+	if err := h.users.UpdatePassword(c.Request.Context(), uid, req.NewUsername, req.CurrentPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(nil))
+}
+
 // CaptchaCheck /api/v1/captcha/check:captcha_enabled=="true" ? 1 : 0
 func (h *Handler) CaptchaCheck(c *gin.Context) {
 	ctx := context.Background()
-	enabled, _ := h.users.GetConfig(ctx, "captcha_enabled")
+	enabled, _ := h.cfg.Get(ctx, "captcha_enabled")
 	data := 0
 	if enabled == "true" {
 		data = 1
@@ -109,11 +242,10 @@ func (h *Handler) FlowUpload(c *gin.Context) {
 		c.String(http.StatusOK, "ok")
 		return
 	}
-	resp := h.flows.ProcessUpload(c.Request.Context(), secret, body)
-	c.String(http.StatusOK, resp)
+	c.String(http.StatusOK, h.flows.ProcessUpload(c.Request.Context(), secret, body))
 }
 
-// FlowConfig /flow/config 节点配置快照上报(免鉴权;M2 仅接收,孤儿清理在 M4 与 Gost 联动时实现)
+// FlowConfig /flow/config 节点配置快照上报(免鉴权;孤儿清理在 M4 与 Gost 联动时实现)
 func (h *Handler) FlowConfig(c *gin.Context) {
 	secret := c.Query("secret")
 	body, err := c.GetRawData()
@@ -128,9 +260,9 @@ func (h *Handler) SystemInfo(c *gin.Context) {
 	h.hub.HandleWS(c)
 }
 
-// ---- 未实现端点占位(后续里程碑) ----
+// ---- 通用 ----
 
-// NotImplemented 后续里程碑端点,先返回业务错误避免前端 404 语义不一致
+// NotImplemented 未实现端点(当前由 NoRoute 兜底)
 func (h *Handler) NotImplemented(c *gin.Context) {
 	path := c.Request.URL.Path
 	if strings.HasPrefix(path, "/flow/") {

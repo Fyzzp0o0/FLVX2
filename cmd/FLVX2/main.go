@@ -32,11 +32,16 @@ func main() {
 	}
 	defer pool.Close()
 
-	users := service.NewUserService(pool)
-	nodes := service.NewNodeService(pool)
-	hub := ws.NewHub(pool, nodes, cfg.JWTSecret)
+	cfgSvc := service.NewViteConfigService(pool)
+	hub := ws.NewHub(cfg.JWTSecret)
+	users := service.NewUserService(pool, cfgSvc, hub)
+	nodes := service.NewNodeService(pool, cfgSvc, hub)
+	tunnels := service.NewTunnelService(pool, nodes, hub)
+	forwards := service.NewForwardService(pool, tunnels, users, nodes, hub)
+	speedLimits := service.NewSpeedLimitService(pool, tunnels)
 	flows := service.NewFlowService(pool, hub)
-	handler := api.NewHandler(users, flows, hub, cfg.JWTSecret)
+	hub.SetNodeStore(nodes)
+	handler := api.NewHandler(users, nodes, tunnels, forwards, speedLimits, cfgSvc, flows, hub, cfg.JWTSecret)
 	router := api.NewRouter(handler)
 
 	// 双端口监听:6636 后端(API/WS/flow,agent 对接) 与 6635 前端(静态+同源 API)
