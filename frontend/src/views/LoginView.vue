@@ -4,10 +4,13 @@ import { useRouter } from 'vue-router'
 import { NForm, NFormItem, NInput, NButton, NCard, NTabPane, NTabs, NAlert, useMessage } from 'naive-ui'
 import { login, register } from '@/api'
 import { useAuthStore } from '@/store/auth'
+import { useAppStore } from '@/store/app'
 
 const router = useRouter()
 const message = useMessage()
 const auth = useAuthStore()
+const app = useAppStore()
+app.load()
 
 const tab = ref('login')
 const loading = ref(false)
@@ -48,7 +51,7 @@ async function doRegister() {
 <template>
   <div class="login-bg">
     <n-card class="login-card" :bordered="false">
-      <h1 class="brand">FLVX2</h1>
+      <h1 class="brand">{{ app.appName }}</h1>
       <n-tabs v-model:value="tab" type="line" animated>
         <n-tab-pane name="login" tab="登录">
           <n-form @keyup.enter="doLogin">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { onMounted, computed, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NLayout, NLayoutSider, NLayoutHeader, NLayoutContent, NMenu, NButton, NTag, NSpace, NIcon,
@@ -8,10 +8,13 @@ import {
 import type { MenuOption } from 'naive-ui'
 import { LayoutDashboard, ArrowLeftRight, Server, GitBranch, Users, Gauge, Settings, UserCircle2 } from 'lucide-vue-next'
 import { useAuthStore } from '@/store/auth'
+import { useAppStore } from '@/store/app'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const app = useAppStore()
+onMounted(() => app.load())
 
 // 登录页全屏(无侧边栏),其余页面走主布局
 const isLogin = computed(() => route.name === 'login')
@@ -48,12 +51,12 @@ function logout() {
         <router-view v-if="isLogin" />
         <n-layout v-else has-sider style="min-height: 100vh">
           <n-layout-sider bordered collapse-mode="width" :width="200" :collapsed-width="64">
-            <div class="logo">FLVX2</div>
+            <div class="logo">{{ app.appName }}</div>
             <n-menu v-model:value="activeKey" :options="menuOptions" :collapsed-width="64" @update:value="(k) => router.push(k as string)" />
           </n-layout-sider>
           <n-layout>
             <n-layout-header bordered class="header">
-              <span>FLVX2 Panel</span>
+              <span>{{ app.appName }} Panel</span>
               <n-space align="center">
                 <n-tag size="small" :type="auth.isAdmin ? 'error' : 'default'">{{ auth.isAdmin ? '管理员' : '用户' }}</n-tag>
                 <n-button size="small" quaternary @click="logout">退出</n-button>

@@ -50,4 +50,5 @@ export const speedLimitDelete = (id: number) => post('/speed-limit/delete', { id
 
 // ---- 配置 ----
 export const configList = () => post<Record<string, string>>('/config/list')
+export const configGet = (name: string) => post<any>('/config/get', { name })
 export const configUpdateSingle = (name: string, value: string) => post('/config/update-single', { name, value })

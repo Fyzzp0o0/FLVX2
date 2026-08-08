@@ -38,5 +38,21 @@ func Init(ctx context.Context, host, port, name, user, password string) (*pgxpoo
 		pool.Close()
 		return nil, fmt.Errorf("执行 data.sql 失败: %w", err)
 	}
+	// 常用配置缺省补全(前端配置页固定展示;ip 为空时 node/install 会提示用户先设置)
+	defaults := []struct{ name, value string }{
+		{"app_name", "flux"},
+		{"ip", ""},
+		{"url", ""},
+		{"announcement", ""},
+	}
+	now := time.Now().UnixMilli()
+	for _, d := range defaults {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO vite_config (name, value, time) VALUES ($1, $2, $3) ON CONFLICT (name) DO NOTHING`,
+			d.name, d.value, now); err != nil {
+			pool.Close()
+			return nil, fmt.Errorf("初始化配置 %s 失败: %w", d.name, err)
+		}
+	}
 	return pool, nil
 }
