@@ -5,33 +5,33 @@ type Node struct {
 	ID             int64  `json:"id"`
 	Name           string `json:"name"`
 	Secret         string `json:"-"`
-	ServerIP       string `json:"server_ip"`
+	ServerIP       string `json:"serverIp"`
 	Port           string `json:"port"` // 端口范围串 "1000-2000,3000"
-	InterfaceName  string `json:"interface_name"`
+	InterfaceName  string `json:"interfaceName"`
 	Version        string `json:"version"`
 	HTTP           int64  `json:"http"`
 	TLS            int64  `json:"tls"`
 	SOCKS          int64  `json:"socks"`
-	CreatedTime    int64  `json:"created_time"`
-	UpdatedTime    int64  `json:"updated_time"`
+	CreatedTime    int64  `json:"createdTime"`
+	UpdatedTime    int64  `json:"updatedTime"`
 	Status         int64  `json:"status"`
-	TCPListenAddr  string `json:"tcp_listen_addr"`
-	UDPListenAddr  string `json:"udp_listen_addr"`
+	TCPListenAddr  string `json:"tcpListenAddr"`
+	UDPListenAddr  string `json:"udpListenAddr"`
 }
 
 // Forward 对应 forward 表
 type Forward struct {
 	ID         int64  `json:"id"`
-	UserID     int64  `json:"user_id"`
-	UserName   string `json:"user_name"`
+	UserID     int64  `json:"userId"`
+	UserName   string `json:"userName"`
 	Name       string `json:"name"`
-	TunnelID   int64  `json:"tunnel_id"`
-	RemoteAddr string `json:"remote_addr"`
+	TunnelID   int64  `json:"tunnelId"`
+	RemoteAddr string `json:"remoteAddr"`
 	Strategy   string `json:"strategy"`
-	InFlow     int64  `json:"in_flow"`
-	OutFlow    int64  `json:"out_flow"`
-	CreatedTime int64 `json:"created_time"`
-	UpdatedTime int64 `json:"updated_time"`
+	InFlow     int64  `json:"inFlow"`
+	OutFlow    int64  `json:"outFlow"`
+	CreatedTime int64 `json:"createdTime"`
+	UpdatedTime int64 `json:"updatedTime"`
 	Status     int64  `json:"status"`
 	Inx        int64  `json:"inx"`
 }
@@ -40,37 +40,37 @@ type Forward struct {
 type Tunnel struct {
 	ID           int64   `json:"id"`
 	Name         string  `json:"name"`
-	TrafficRatio float64 `json:"traffic_ratio"`
+	TrafficRatio float64 `json:"trafficRatio"`
 	Type         int64   `json:"type"`
 	Protocol     string  `json:"protocol"`
 	Flow         int64   `json:"flow"`
-	CreatedTime  int64   `json:"created_time"`
-	UpdatedTime  int64   `json:"updated_time"`
+	CreatedTime  int64   `json:"createdTime"`
+	UpdatedTime  int64   `json:"updatedTime"`
 	Status       int64   `json:"status"`
-	InIP         string  `json:"in_ip"`
+	InIP         string  `json:"inIp"`
 }
 
 // UserTunnel 对应 user_tunnel 表
 type UserTunnel struct {
 	ID            int64  `json:"id"`
-	UserID        int64  `json:"user_id"`
-	TunnelID      int64  `json:"tunnel_id"`
-	SpeedID       *int64 `json:"speed_id"`
+	UserID        int64  `json:"userId"`
+	TunnelID      int64  `json:"tunnelId"`
+	SpeedID       *int64 `json:"speedId"`
 	Num           int64  `json:"num"`
 	Flow          int64  `json:"flow"`
-	InFlow        int64  `json:"in_flow"`
-	OutFlow       int64  `json:"out_flow"`
-	FlowResetTime int64  `json:"flow_reset_time"`
-	ExpTime       int64  `json:"exp_time"`
+	InFlow        int64  `json:"inFlow"`
+	OutFlow       int64  `json:"outFlow"`
+	FlowResetTime int64  `json:"flowResetTime"`
+	ExpTime       int64  `json:"expTime"`
 	Status        int64  `json:"status"`
 }
 
 // ChainTunnel 对应 chain_tunnel 表(chain_type 为字符串 "1"入口/"2"转发链/"3"出口)
 type ChainTunnel struct {
 	ID        int64  `json:"id"`
-	TunnelID  int64  `json:"tunnel_id"`
-	ChainType string `json:"chain_type"`
-	NodeID    int64  `json:"node_id"`
+	TunnelID  int64  `json:"tunnelId"`
+	ChainType string `json:"chainType"`
+	NodeID    int64  `json:"nodeId"`
 	Port      *int64 `json:"port"`
 	Strategy  string `json:"strategy"`
 	Inx       int64  `json:"inx"`
@@ -82,19 +82,19 @@ type SpeedLimit struct {
 	ID          int64  `json:"id"`
 	Name        string `json:"name"`
 	Speed       int64  `json:"speed"`
-	TunnelID    int64  `json:"tunnel_id"`
-	TunnelName  string `json:"tunnel_name"`
-	CreatedTime int64  `json:"created_time"`
-	UpdatedTime int64  `json:"updated_time"`
+	TunnelID    int64  `json:"tunnelId"`
+	TunnelName  string `json:"tunnelName"`
+	CreatedTime int64  `json:"createdTime"`
+	UpdatedTime int64  `json:"updatedTime"`
 	Status      int64  `json:"status"`
 }
 
 // StatisticsFlow 对应 statistics_flow 表
 type StatisticsFlow struct {
 	ID          int64  `json:"id"`
-	UserID      int64  `json:"user_id"`
+	UserID      int64  `json:"userId"`
 	Flow        int64  `json:"flow"`
-	TotalFlow   int64  `json:"total_flow"`
+	TotalFlow   int64  `json:"totalFlow"`
 	Time        string `json:"time"`
-	CreatedTime int64  `json:"created_time"`
+	CreatedTime int64  `json:"createdTime"`
 }

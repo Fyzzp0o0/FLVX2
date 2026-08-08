@@ -38,6 +38,17 @@ DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -hex 12)}"
 JWT_SECRET="${JWT_SECRET:-$(openssl rand -hex 16)}"
 NODE_SECRET="${NODE_SECRET:-}"
 NODE_PANEL_ADDR="${NODE_PANEL_ADDR:-}"
+# install-agent 支持位置参数: -a <面板IP:后端端口> -s <节点密钥>
+if [ "$ACTION" = "install-agent" ] || [ "$ACTION" = "agent" ]; then
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -a) NODE_PANEL_ADDR="$2"; shift 2 ;;
+      -s) NODE_SECRET="$2"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+fi
 
 GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
 ok()  { echo -e "${GREEN}[OK] $1${NC}"; }

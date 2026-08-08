@@ -182,7 +182,7 @@ func (s *NodeService) InstallCmd(ctx context.Context, id int64) (string, error) 
 	if ip == "" {
 		return "", errors.New("请先前往网站配置中设置ip")
 	}
-	return fmt.Sprintf("curl -L https://github.com/bqlpfy/flux-panel/releases/download/2.0.7-beta/install.sh -o ./install.sh && chmod +x ./install.sh && ./install.sh -a %s -s %s", ip, node.Secret), nil
+	return fmt.Sprintf("curl -fsSL https://raw.githubusercontent.com/Fyzzp0o0/FLVX2/main/scripts/install-flvx2.sh | bash -s -- install-agent -a %s:6636 -s %s", ip, node.Secret), nil
 }
 
 // validatePortRange 校验端口范围串 "80,443,1000-2000"

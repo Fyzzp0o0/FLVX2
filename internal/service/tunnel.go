@@ -110,9 +110,8 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 		allNodes[ct.NodeID] = true
 	}
 	for nid := range allNodes {
-		n, err := s.nodes.GetByID(ctx, nid)
-		if err != nil || n.Status != 1 {
-			return errors.New("节点不存在或未启用")
+		if _, err := s.nodes.GetByID(ctx, nid); err != nil {
+			return errors.New("节点不存在")
 		}
 	}
 	// 入口节点 IP
@@ -137,6 +136,24 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 		return err
 	}
 	// 组装 chain_tunnel 并分配端口(入口无端口,转发链/出口自动分配)
+	// 内存占用集合:同一次创建中同节点多角色(链+出口)不冲突(DB 尚未插入,GetNodePort 查不到)
+	allocUsed := map[int64]map[int]bool{}
+	allocPort := func(nodeID int64) (int, error) {
+		base, err := s.GetNodePort(ctx, nodeID, 0)
+		if err != nil {
+			return 0, err
+		}
+		used := allocUsed[nodeID]
+		for used[base] {
+			base++
+		}
+		if used == nil {
+			used = map[int]bool{}
+			allocUsed[nodeID] = used
+		}
+		used[base] = true
+		return base, nil
+	}
 	chains := []ChainTunnelIn{}
 	for _, ct := range dto.InNodeID {
 		ct.ChainType = 1
@@ -144,34 +161,36 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 		chains = append(chains, ct)
 	}
 	inx := 0
-	for _, group := range dto.ChainNodes {
-		for _, ct := range group {
+	for gi, group := range dto.ChainNodes {
+		for ci, ct := range group {
 			ct.ChainType = 2
 			ct.TunnelID = tunnelID
 			ct.Inx = inx
 			if ct.Port == nil {
-				p, err := s.GetNodePort(ctx, ct.NodeID, 0)
+				p, err := allocPort(ct.NodeID)
 				if err != nil {
 					return err
 				}
 				pp := int64(p)
 				ct.Port = &pp
 			}
+			dto.ChainNodes[gi][ci] = ct // 写回,供 deployChainServices 使用
 			chains = append(chains, ct)
 		}
 		inx++
 	}
-	for _, ct := range dto.OutNodeID {
+	for oi, ct := range dto.OutNodeID {
 		ct.ChainType = 3
 		ct.TunnelID = tunnelID
 		if ct.Port == nil {
-			p, err := s.GetNodePort(ctx, ct.NodeID, 0)
+			p, err := allocPort(ct.NodeID)
 			if err != nil {
 				return err
 			}
 			pp := int64(p)
 			ct.Port = &pp
 		}
+		dto.OutNodeID[oi] = ct // 写回,供 deployChainServices 使用
 		chains = append(chains, ct)
 	}
 	for _, ct := range chains {

@@ -5,15 +5,15 @@ type User struct {
 	ID            int64  `json:"id"`
 	User          string `json:"user"`
 	Pwd           string `json:"-"`
-	RoleID        int64  `json:"role_id"`
-	ExpTime       int64  `json:"exp_time"`
+	RoleID        int64  `json:"roleId"`
+	ExpTime       int64  `json:"expTime"`
 	Flow          int64  `json:"flow"` // GB
-	InFlow        int64  `json:"in_flow"`
-	OutFlow       int64  `json:"out_flow"`
-	FlowResetTime int64  `json:"flow_reset_time"`
+	InFlow        int64  `json:"inFlow"`
+	OutFlow       int64  `json:"outFlow"`
+	FlowResetTime int64  `json:"flowResetTime"`
 	Num           int64  `json:"num"`
-	CreatedTime   int64  `json:"created_time"`
-	UpdatedTime   int64  `json:"updated_time"`
+	CreatedTime   int64  `json:"createdTime"`
+	UpdatedTime   int64  `json:"updatedTime"`
 	Status        int64  `json:"status"`
 }
 
