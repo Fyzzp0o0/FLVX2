@@ -106,12 +106,13 @@ cd /opt/FLVX2 && set -a && . ./.env && set +a && ./FLVX2
 ```
 /opt/FLVX2/
 ├── FLVX2           # 面板二进制(含前端)
-├── .env            # 配置(权限 600)
-└── logs/           # 日志
+└── .env            # 配置(权限 600)
 /opt/FLVX2-Agent/
 ├── FLVX2-Agent     # 节点内核二进制
 └── config.json     # addr/secret/http/tls/socks
 ```
+
+> 说明:面板日志**不写文件**,直接输出到 systemd journal(`journalctl -u flvx2-backend -f`);因此 `/opt/FLVX2` 下只有二进制与 `.env` 两个文件属正常现象。
 
 ## 8. 常见问题
 

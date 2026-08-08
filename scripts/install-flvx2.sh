@@ -105,6 +105,15 @@ ensure_postgres() {
   ok "PostgreSQL 就绪: ${DB_NAME}@${DB_HOST}:${DB_PORT}"
 }
 
+# 修复 /etc/hosts 主机名映射(消除 sudo "unable to resolve host" 警告)
+fix_hostname_resolution() {
+  local hn; hn="$(hostname)"
+  if [ -n "$hn" ] && ! grep -q "$hn" /etc/hosts; then
+    echo "127.0.1.1 $hn" >> /etc/hosts
+    echo "[INFO] 已修复 /etc/hosts 主机名解析"
+  fi
+}
+
 # ---------- 面板 .env(复用已有,避免重跑改密导致 token 失效) ----------
 write_env() {
   if [ -f "$ENV_FILE" ]; then
@@ -174,6 +183,7 @@ EOF
 # ---------- 动作 ----------
 install_panel() {
   require_root
+  fix_hostname_resolution
   install_base_deps
   ensure_postgres
   write_env
@@ -196,6 +206,7 @@ install_panel() {
 
 install_agent() {
   require_root
+  fix_hostname_resolution
   [ -n "$NODE_SECRET" ] || err "请设置 NODE_SECRET(面板 → 节点管理 → 创建节点后获得)"
   if [ -z "$NODE_PANEL_ADDR" ]; then
     NODE_PANEL_ADDR="$(hostname -I 2>/dev/null | awk '{print $1}'):${BACKEND_PORT}"
