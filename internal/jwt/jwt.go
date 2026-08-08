@@ -1,12 +1,10 @@
-package api
+package jwt
 
 import (
 	"crypto/hmac"
-	"crypto/md5"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -93,8 +91,3 @@ func sign(secret, input string) string {
 	return b64.EncodeToString(mac.Sum(nil))
 }
 
-// md5Hex 无盐 MD5 十六进制小写(兼容原 Md5Util.md5)
-func md5Hex(s string) string {
-	sum := md5.Sum([]byte(s))
-	return fmt.Sprintf("%x", sum)
-}

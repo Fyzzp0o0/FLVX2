@@ -35,8 +35,12 @@ func NewRouter(h *Handler) *gin.Engine {
 	flow := r.Group("/flow")
 	{
 		flow.Any("/test", h.FlowTest)
-		// TODO(M2): /upload /config 流量上报与配置快照
+		flow.Any("/upload", h.FlowUpload)
+		flow.Any("/config", h.FlowConfig)
 	}
+
+	// ---- /system-info WebSocket(节点 type=1 / 管理员 type=0) ----
+	r.GET("/system-info", h.SystemInfo)
 
 	// ---- 静态托管(仅前端端口 6635 使用,挂同引擎方便同源 API) ----
 	registerStatic(r)

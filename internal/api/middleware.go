@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/Fyzzp0o0/FLVX2/internal/jwt"
 )
 
 // R 统一响应包装,兼容原 R.java: {code, msg, ts, data}
@@ -70,7 +72,7 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		uid, username, roleID, valid := ValidateToken(secret, token)
+		uid, username, roleID, valid := jwt.ValidateToken(secret, token)
 		if !valid {
 			c.JSON(http.StatusOK, errCode(401, "无效的token或token已过期"))
 			c.Abort()

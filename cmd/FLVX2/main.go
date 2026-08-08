@@ -16,6 +16,7 @@ import (
 	"github.com/Fyzzp0o0/FLVX2/internal/config"
 	"github.com/Fyzzp0o0/FLVX2/internal/db"
 	"github.com/Fyzzp0o0/FLVX2/internal/service"
+	"github.com/Fyzzp0o0/FLVX2/internal/ws"
 )
 
 func main() {
@@ -32,7 +33,10 @@ func main() {
 	defer pool.Close()
 
 	users := service.NewUserService(pool)
-	handler := api.NewHandler(users, cfg.JWTSecret)
+	nodes := service.NewNodeService(pool)
+	hub := ws.NewHub(pool, nodes, cfg.JWTSecret)
+	flows := service.NewFlowService(pool, hub)
+	handler := api.NewHandler(users, flows, hub, cfg.JWTSecret)
 	router := api.NewRouter(handler)
 
 	// 双端口监听:6636 后端(API/WS/flow,agent 对接) 与 6635 前端(静态+同源 API)
