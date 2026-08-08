@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/robfig/cron/v3"
+
 	"github.com/Fyzzp0o0/FLVX2/internal/api"
 	"github.com/Fyzzp0o0/FLVX2/internal/config"
 	"github.com/Fyzzp0o0/FLVX2/internal/db"
@@ -40,9 +42,21 @@ func main() {
 	forwards := service.NewForwardService(pool, tunnels, users, nodes, hub)
 	speedLimits := service.NewSpeedLimitService(pool, tunnels, hub)
 	flows := service.NewFlowService(pool, hub)
+	jobs := service.NewJobService(pool, hub)
 	hub.SetNodeStore(nodes)
 	handler := api.NewHandler(users, nodes, tunnels, forwards, speedLimits, cfgSvc, flows, hub, cfg.JWTSecret)
 	router := api.NewRouter(handler)
+
+	// 定时任务(对应 Java @Scheduled):每天 00:00:05 重置+停服;每小时整点快照
+	c := cron.New(cron.WithLocation(time.Local), cron.WithSeconds())
+	if _, err := c.AddFunc("5 0 0 * * *", func() { jobs.ResetFlowDaily(context.Background()) }); err != nil {
+		log.Fatalf("[FLVX2] 注册定时任务失败: %v", err)
+	}
+	if _, err := c.AddFunc("0 0 * * * *", func() { jobs.SnapshotHourly(context.Background()) }); err != nil {
+		log.Fatalf("[FLVX2] 注册定时任务失败: %v", err)
+	}
+	c.Start()
+	defer c.Stop()
 
 	// 双端口监听:6636 后端(API/WS/flow,agent 对接) 与 6635 前端(静态+同源 API)
 	servers := []*http.Server{
