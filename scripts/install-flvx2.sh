@@ -226,7 +226,14 @@ install_agent() {
   echo "[INFO] 下载 Agent v${version} ..."
   mkdir -p "$AGENT_DIR"
   local tmp; tmp="$(mktemp)"
-  curl -fsSL --retry 3 -o "$tmp" "$(agent_url "$version")" || err "Agent 下载失败: $(agent_url "$version")"
+  local url; url="$(agent_url "$version")"
+  if ! curl -fsSL --retry 3 -o "$tmp" "$url"; then
+    # 该版本未附带 Agent 资产时,回退到已知可用版本(协议向后兼容)
+    local fb="${FLVX2_AGENT_FALLBACK:-1.0.4}"
+    echo "[WARN] v${version} 未包含 Agent 资产,回退下载 v${fb} ..."
+    url="$(agent_url "$fb")"
+    curl -fsSL --retry 3 -o "$tmp" "$url" || err "Agent 下载失败: $url"
+  fi
   install -m755 "$tmp" "$AGENT_DIR/FLVX2-Agent"
   rm -f "$tmp"
   cat > "$AGENT_DIR/config.json" <<EOF
