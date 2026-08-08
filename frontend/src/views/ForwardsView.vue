@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { h, onMounted, ref } from 'vue'
 import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NSelect, NSpace, NTag, useMessage } from 'naive-ui'
-import { forwardList, forwardCreate, forwardUpdate, forwardDelete, forwardForceDelete, forwardPause, forwardResume, forwardDiagnose, myTunnels } from '@/api'
+import { forwardList, forwardCreate, forwardUpdate, forwardDelete, forwardForceDelete, forwardPause, forwardResume, forwardDiagnose, forwardUpdateOrder, myTunnels } from '@/api'
 import { useAuthStore } from '@/store/auth'
 
 const message = useMessage()
@@ -22,16 +22,42 @@ const columns = [
   { title: '操作', key: 'actions', render: (r: any) => hActions(r) }
 ]
 
+const orderUp = (r: any) => { move(r, -1) }
+const orderDown = (r: any) => { move(r, 1) }
+
 function hTag(text: string, type: any) { return h(NTag, { type, size: 'small' }, { default: () => text }) }
 function fmt(v: number) { return v > 1048576 ? `${(v / 1048576).toFixed(1)}MB` : `${(v / 1024).toFixed(0)}KB` }
 
 function hActions(r: any) {
   return h(NSpace, { size: 4 }, { default: () => [
+    h(NButton, { size: 'tiny', type: 'info', quaternary: true, onClick: () => edit(r) }, { default: () => '编辑' }),
+    h(NButton, { size: 'tiny', type: 'primary', quaternary: true, onClick: () => orderUp(r) }, { default: () => '↑' }),
+    h(NButton, { size: 'tiny', type: 'primary', quaternary: true, onClick: () => orderDown(r) }, { default: () => '↓' }),
     h(NButton, { size: 'tiny', type: r.status === 1 ? 'warning' : 'primary', quaternary: true, onClick: () => toggle(r) }, { default: () => (r.status === 1 ? '暂停' : '恢复') }),
     h(NButton, { size: 'tiny', type: 'info', quaternary: true, onClick: () => diagnose(r) }, { default: () => '诊断' }),
     h(NButton, { size: 'tiny', type: 'error', quaternary: true, onClick: () => remove(r, false) }, { default: () => '删除' }),
     ...(auth.isAdmin ? [h(NButton, { size: 'tiny', type: 'error', text: true, onClick: () => remove(r, true) }, { default: () => '强删' })] : [])
   ] })
+}
+
+function edit(r: any) {
+  editing.value = r
+  form.value = { name: r.name, tunnelId: r.tunnelId, remoteAddr: r.remoteAddr, strategy: r.strategy || 'fifo', inPort: 0 }
+  showModal.value = true
+}
+
+async function move(r: any, dir: number) {
+  const idx = rows.value.findIndex((x) => x.id === r.id)
+  const target = idx + dir
+  if (target < 0 || target >= rows.value.length) return
+  const list = rows.value.map((x) => ({ id: x.id, inx: x.inx }))
+  ;[list[idx].inx, list[target].inx] = [list[target].inx, list[idx].inx]
+  try {
+    await forwardUpdateOrder(list)
+    rows.value = rows.value.map((x) => ({ ...x, inx: x.inx }))
+    message.success('排序已更新')
+    load()
+  } catch (e: any) { message.error(e.message) }
 }
 
 async function load() {

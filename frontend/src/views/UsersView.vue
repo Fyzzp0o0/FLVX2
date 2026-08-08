@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { h, onMounted, ref } from 'vue'
 import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NInputNumber, NTag, useMessage } from 'naive-ui'
-import { h } from 'vue'
 import { userList, userCreate, userUpdate, userDelete, userReset, tunnelUserList, tunnelUserAssign, tunnelUserRemove, tunnelList } from '@/api'
 
 const message = useMessage()
@@ -9,6 +8,8 @@ const rows = ref<any[]>([])
 const tunnels = ref<any[]>([])
 const showModal = ref(false)
 const showAuthModal = ref(false)
+const editing = ref<any>(null)
+const authRows = ref<any[]>([])
 const form = ref({ user: '', pwd: '', flow: 10, num: 5, expTime: 0, flowResetTime: 0 })
 const authForm = ref({ userId: 0, tunnelId: null as number | null, flow: 10, num: 5, expTime: 0, flowResetTime: 0, speedId: null as number | null })
 
@@ -22,6 +23,7 @@ const columns = [
   {
     title: '操作', key: 'actions', render: (r: any) =>
       h('div', null, [
+        h(NButton, { size: 'tiny', type: 'info', quaternary: true, onClick: () => edit(r) }, { default: () => '编辑' }),
         h(NButton, { size: 'tiny', type: 'primary', quaternary: true, onClick: () => openAuth(r) }, { default: () => '隧道授权' }),
         h(NButton, { size: 'tiny', type: 'warning', quaternary: true, onClick: () => resetFlow(r) }, { default: () => '重置流量' }),
         h(NButton, { size: 'tiny', type: 'error', quaternary: true, onClick: () => remove(r) }, { default: () => '删除' })
@@ -40,11 +42,22 @@ async function load() {
 
 async function save() {
   try {
-    await userCreate({ ...form.value, expTime: Date.now() + 30 * 24 * 3600 * 1000, flowResetTime: 1 })
-    message.success('用户已创建')
+    if (editing.value) {
+      await userUpdate({ id: editing.value.id, ...form.value })
+      message.success('用户已更新')
+    } else {
+      await userCreate({ ...form.value, expTime: Date.now() + 30 * 24 * 3600 * 1000, flowResetTime: 1 })
+      message.success('用户已创建')
+    }
     showModal.value = false
     load()
   } catch (e: any) { message.error(e.message) }
+}
+
+function edit(r: any) {
+  editing.value = r
+  form.value = { user: r.user, pwd: '', flow: r.flow, num: r.num, expTime: r.expTime, flowResetTime: r.flowResetTime }
+  showModal.value = true
 }
 
 async function remove(r: any) {
@@ -58,7 +71,25 @@ async function resetFlow(r: any) {
 async function openAuth(r: any) {
   authForm.value = { userId: r.id, tunnelId: null, flow: 10, num: 5, expTime: 0, flowResetTime: 0, speedId: null }
   showAuthModal.value = true
+  try { authRows.value = await tunnelUserList(r.id) } catch { authRows.value = [] }
 }
+
+async function removeAuth(a: any) {
+  try {
+    await tunnelUserRemove(a.id)
+    message.success('已移除授权')
+    if (authForm.value.userId) authRows.value = await tunnelUserList(authForm.value.userId)
+  } catch (e: any) { message.error(e.message) }
+}
+
+const authColumns = [
+  { title: '隧道', key: 'tunnelName' },
+  { title: '限速', key: 'speedLimitName', render: (r: any) => r.speedLimitName || '不限速' },
+  { title: '流量(GB)', key: 'flow' },
+  { title: '转发数', key: 'num' },
+  { title: '到期', key: 'expView', render: (r: any) => new Date(r.expTime).toLocaleDateString() },
+  { title: '操作', key: 'actions', render: (r: any) => h(NButton, { size: 'tiny', type: 'error', quaternary: true, onClick: () => removeAuth(r) }, { default: () => '移除' }) }
+]
 
 async function saveAuth() {
   try {
@@ -76,19 +107,28 @@ onMounted(load)
     <template #header-extra>
       <n-button type="primary" size="small" @click="showModal = true">新建用户</n-button>
     </template>
+<script lang="ts">
+import { defineComponent } from 'vue'
+export default defineComponent({})
+</script>
     <n-data-table :columns="columns" :data="rows" :bordered="false" size="small" :pagination="{ pageSize: 20 }" />
 
-    <n-modal v-model:show="showModal" preset="card" title="新建用户" style="width: 460px">
+    <n-modal v-model:show="showModal" preset="card" :title="editing ? '编辑用户' : '新建用户'" style="width: 460px">
       <n-form label-placement="left" label-width="90px">
         <n-form-item label="用户名"><n-input v-model:value="form.user" /></n-form-item>
-        <n-form-item label="密码"><n-input v-model:value="form.pwd" type="password" /></n-form-item>
+        <n-form-item :label="editing ? '重置密码(留空不改)' : '密码'"><n-input v-model:value="form.pwd" type="password" :placeholder="editing ? '留空则保持不变' : ''" /></n-form-item>
         <n-form-item label="流量上限(GB)"><n-input-number v-model:value="form.flow" :min="0" /></n-form-item>
         <n-form-item label="转发上限"><n-input-number v-model:value="form.num" :min="0" /></n-form-item>
       </n-form>
       <template #footer><n-button type="primary" block @click="save">创建</n-button></template>
+<script lang="ts">
+import { defineComponent } from 'vue'
+export default defineComponent({})
+</script>
     </n-modal>
 
-    <n-modal v-model:show="showAuthModal" preset="card" title="隧道授权" style="width: 460px">
+    <n-modal v-model:show="showAuthModal" preset="card" title="隧道授权" style="width: 560px">
+      <n-data-table v-if="authRows.length" :columns="authColumns" :data="authRows" :bordered="false" size="small" style="margin-bottom: 12px" />
       <n-form label-placement="left" label-width="90px">
         <n-form-item label="隧道">
           <n-select v-model:value="authForm.tunnelId" :options="tunnels.map((t) => ({ label: t.name, value: t.id }))" />
@@ -97,6 +137,10 @@ onMounted(load)
         <n-form-item label="转发上限"><n-input-number v-model:value="authForm.num" :min="0" /></n-form-item>
       </n-form>
       <template #footer><n-button type="primary" block @click="saveAuth">授权</n-button></template>
+<script lang="ts">
+import { defineComponent } from 'vue'
+export default defineComponent({})
+</script>
     </n-modal>
   </n-card>
 </template>

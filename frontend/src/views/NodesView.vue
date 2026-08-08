@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { NCard, NButton, NDataTable, NModal, NForm, NFormItem, NInput, NTag, NSpace, useMessage } from 'naive-ui'
 import { h } from 'vue'
-import { nodeList, nodeCreate, nodeDelete, nodeInstall } from '@/api'
+import { nodeList, nodeCreate, nodeUpdate, nodeDelete, nodeInstall } from '@/api'
+import { useAuthStore } from '@/store/auth'
 
 const message = useMessage()
 const rows = ref<any[]>([])
 const showModal = ref(false)
 const form = ref({ name: '', serverIp: '', port: '', http: 1, tls: 0, socks: 1 })
+const editing = ref<any>(null)
+const auth = useAuthStore()
+const online = ref<Record<number, any>>({})
 
 function renderProto(r: any) {
   return h(NSpace, { size: 2 }, { default: () => protoTags(r) })
@@ -38,6 +42,7 @@ const columns = [
   {
     title: '操作', key: 'actions', render: (r: any) =>
       h(NSpace, { size: 4 }, { default: () => [
+        h(NButton, { size: 'tiny', type: 'info', quaternary: true, onClick: () => edit(r) }, { default: () => '编辑' }),
         h(NButton, { size: 'tiny', type: 'info', quaternary: true, onClick: () => install(r) }, { default: () => '安装命令' }),
         h(NButton, { size: 'tiny', type: 'error', quaternary: true, onClick: () => remove(r) }, { default: () => '删除' })
       ] })
@@ -50,12 +55,53 @@ async function load() {
 
 async function save() {
   try {
-    await nodeCreate(form.value)
-    message.success('节点已创建(离线,需安装 agent 上线)')
+    if (editing.value) {
+      await nodeUpdate({ id: editing.value.id, ...form.value })
+      message.success('节点已更新')
+    } else {
+      await nodeCreate(form.value)
+      message.success('节点已创建(离线,需安装 agent 上线)')
+    }
     showModal.value = false
     load()
   } catch (e: any) { message.error(e.message) }
 }
+
+function edit(r: any) {
+  editing.value = r
+  form.value = { name: r.name, serverIp: r.serverIp, port: r.port, http: r.http, tls: r.tls, socks: r.socks }
+  showModal.value = true
+}
+
+// 节点实时状态(WebSocket type=0 管理员通道)
+let ws: WebSocket | null = null
+let wsTimer: any = null
+function connectWS() {
+  if (!auth.token) return
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/system-info?type=0&secret=${auth.token}`)
+  ws.onmessage = (ev) => {
+    try {
+      const msg = JSON.parse(ev.data)
+      if (msg.type === 'status') {
+        const id = Number(msg.id)
+        online.value = { ...online.value, [id]: { status: msg.data } }
+        load()
+      } else if (msg.type === 'info') {
+        const id = Number(msg.id)
+        try {
+          const info = JSON.parse(msg.data)
+          online.value = { ...online.value, [id]: { status: 1, cpu: info.cpu_usage, mem: info.memory_usage, uptime: info.uptime } }
+        } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+  }
+  ws.onclose = () => {
+    wsTimer = setTimeout(connectWS, 3000) // 指数退避简化:固定 3s 重连
+  }
+  ws.onerror = () => { ws?.close() }
+}
+onMounted(() => { load(); connectWS() })
+onUnmounted(() => { ws?.close(); clearTimeout(wsTimer) })
 
 async function remove(r: any) {
   try { await nodeDelete(r.id); message.success('已删除'); load() } catch (e: any) { message.error(e.message) }
@@ -68,7 +114,7 @@ async function install(r: any) {
   } catch (e: any) { message.error(e.message) }
 }
 
-onMounted(load)
+
 </script>
 
 <template>
