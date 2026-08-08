@@ -162,8 +162,25 @@ func (s *ForwardService) Create(ctx context.Context, name string, tunnelID int64
 			return err
 		}
 	}
-	// TODO(M4): 入口节点 AddService(tcp+udp,含 limiter=speedID)
-	_ = speedID
+	// AddService 下发(tcp+udp,含 limiter);失败回滚已建服务与 DB 记录
+	tunnelInfo, _ := s.tunnels.GetByID(ctx, tunnelID)
+	for i, nid := range entryNodes {
+		node, err := s.nodes.GetByID(ctx, nid)
+		if err != nil {
+			return err
+		}
+		services := BuildForwardServices(svcName, speedID, node, int64(ports[i]), tunnelInfo, remoteAddr)
+		dto := s.hub.SendCommand(nid, "AddService", services)
+		if dto.Code != 0 {
+			for _, prev := range entryNodes[:i] {
+				s.hub.SendCommand(prev, "DeleteService", ws.DeleteServicesData{
+					Services: []string{svcName + "_tcp", svcName + "_udp"},
+				})
+			}
+			_ = s.DeleteByID(ctx, forwardID, 0, roleAdmin)
+			return errors.New(dto.Msg)
+		}
+	}
 	return nil
 }
 
@@ -457,3 +474,72 @@ func intersect(a, b []int) []int {
 }
 
 
+
+// Update 更新转发(保留记录,UpdateService 重推;对应 Java updateForward)
+func (s *ForwardService) Update(ctx context.Context, id, userID, roleID int64, name, remoteAddr, strategy string, inPort int64) error {
+	f, err := s.getOwned(ctx, id, userID, roleID)
+	if err != nil {
+		return err
+	}
+	tunnel, err := s.tunnels.GetByID(ctx, f.TunnelID)
+	if err != nil || tunnel.Status != 1 {
+		return errors.New("隧道不存在或未启用")
+	}
+	entryNodes := entryNodeIDs(ctx, s.pool, f.TunnelID)
+	if len(entryNodes) == 0 {
+		return errors.New("隧道没有入口节点")
+	}
+	ports := make([]int, 0, len(entryNodes))
+	if inPort > 0 {
+		for _, nid := range entryNodes {
+			avail, err := s.availablePorts(ctx, nid, id)
+			if err != nil || !contains(avail, int(inPort)) {
+				return errors.New("指定端口不可用")
+			}
+			ports = append(ports, int(inPort))
+		}
+	} else {
+		for _, nid := range entryNodes {
+			avail, err := s.availablePorts(ctx, nid, id)
+			if err != nil {
+				return err
+			}
+			ports = append(ports, avail[0])
+		}
+	}
+	if strategy == "" {
+		strategy = "fifo"
+	}
+	now := time.Now().UnixMilli()
+	if _, err := s.pool.Exec(ctx,
+		`UPDATE forward SET name=$2, remote_addr=$3, strategy=$4, status=1, updated_time=$5 WHERE id=$1`,
+		id, name, remoteAddr, strategy, now); err != nil {
+		return err
+	}
+	if _, err := s.pool.Exec(ctx, `DELETE FROM forward_port WHERE forward_id = $1`, id); err != nil {
+		return err
+	}
+	for i, nid := range entryNodes {
+		if _, err := s.pool.Exec(ctx,
+			`INSERT INTO forward_port (forward_id, node_id, port) VALUES ($1,$2,$3)`,
+			id, nid, ports[i]); err != nil {
+			return err
+		}
+	}
+	// UpdateService 重推(含 limiter)
+	var speedID *int64
+	_ = s.pool.QueryRow(ctx, `SELECT speed_id FROM user_tunnel WHERE user_id = $1 AND tunnel_id = $2`,
+		userID, f.TunnelID).Scan(&speedID)
+	for i, nid := range entryNodes {
+		node, err := s.nodes.GetByID(ctx, nid)
+		if err != nil {
+			return err
+		}
+		services := BuildForwardServices(f.Name, speedID, node, int64(ports[i]), tunnel, remoteAddr)
+		dto := s.hub.SendCommand(nid, "UpdateService", services)
+		if dto.Code != 0 {
+			return errors.New(dto.Msg)
+		}
+	}
+	return nil
+}

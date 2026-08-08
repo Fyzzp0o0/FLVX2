@@ -51,7 +51,7 @@ func NewRouter(h *Handler) *gin.Engine {
 			tunnel.POST("/list", RequireAdmin, h.TunnelList)
 			tunnel.POST("/update", RequireAdmin, h.TunnelUpdate)
 			tunnel.POST("/delete", RequireAdmin, h.TunnelDelete)
-			// TODO(M4): /diagnose
+			tunnel.POST("/diagnose", RequireAdmin, h.TunnelDiagnose)
 			tunnelUser := tunnel.Group("/user")
 			{
 				tunnelUser.POST("/assign", RequireAdmin, h.TunnelUserAssign)
@@ -72,7 +72,7 @@ func NewRouter(h *Handler) *gin.Engine {
 			forward.POST("/pause", h.ForwardPause)
 			forward.POST("/resume", h.ForwardResume)
 			forward.POST("/update-order", h.ForwardUpdateOrder)
-			// TODO(M4): /diagnose
+			forward.POST("/diagnose", h.ForwardDiagnose)
 		}
 		// ---- 限速(全部管理员) ----
 		speedLimit := apiV1.Group("/speed-limit", RequireAdmin)

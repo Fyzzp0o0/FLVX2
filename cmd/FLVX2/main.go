@@ -38,7 +38,7 @@ func main() {
 	nodes := service.NewNodeService(pool, cfgSvc, hub)
 	tunnels := service.NewTunnelService(pool, nodes, hub)
 	forwards := service.NewForwardService(pool, tunnels, users, nodes, hub)
-	speedLimits := service.NewSpeedLimitService(pool, tunnels)
+	speedLimits := service.NewSpeedLimitService(pool, tunnels, hub)
 	flows := service.NewFlowService(pool, hub)
 	hub.SetNodeStore(nodes)
 	handler := api.NewHandler(users, nodes, tunnels, forwards, speedLimits, cfgSvc, flows, hub, cfg.JWTSecret)

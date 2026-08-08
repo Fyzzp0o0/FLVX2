@@ -173,9 +173,10 @@ type ConfigSnapshot struct {
 }
 
 // ParseConfigSnapshot 解析 /flow/config(解密+解析);孤儿清理(DeleteService/DeleteChains/DeleteLimiters)
-// 在 M4 与 Gost 联动时实现(当前版本仅接收解析,返回 ok)
+// 修正 Java 缺陷:_udp 结尾残留服务一并清理
 func (s *FlowService) ParseConfigSnapshot(ctx context.Context, secret string, rawBody []byte) (*ConfigSnapshot, error) {
-	if err := s.pool.QueryRow(ctx, `SELECT id FROM node WHERE secret = $1`, secret).Scan(new(int64)); err != nil {
+	var nodeID int64
+	if err := s.pool.QueryRow(ctx, `SELECT id FROM node WHERE secret = $1`, secret).Scan(&nodeID); err != nil {
 		return nil, err
 	}
 	payload, err := s.crypto.Decrypt(secret, rawBody)
@@ -188,7 +189,76 @@ func (s *FlowService) ParseConfigSnapshot(ctx context.Context, secret string, ra
 	if err := json.Unmarshal(payload, &wrapped); err != nil {
 		return nil, err
 	}
+	if wrapped.Config != nil {
+		go s.cleanOrphans(nodeID, wrapped.Config) // 异步(Java @Async)
+	}
 	return wrapped.Config, nil
+}
+
+// cleanOrphans 孤儿配置清理:DB 中找不到对应 forward/tunnel/speed_limit 的即删除
+func (s *FlowService) cleanOrphans(nodeID int64, snap *ConfigSnapshot) {
+	ctx := context.Background()
+	cleaned := map[string]bool{} // base 名去重(_tcp/_udp 各出现一次时只删一次)
+	for _, svc := range snap.Services {
+		name := svc.Name
+		if name == "web_api" {
+			continue
+		}
+		parts := strings.Split(name, "_")
+		if len(parts) == 0 {
+			continue
+		}
+		id, err := strconv.ParseInt(parts[0], 10, 64)
+		if err != nil {
+			continue
+		}
+		switch {
+		case strings.HasSuffix(name, "_tls"):
+			// <tunnelId>_tls → 查 tunnel
+			var cnt int64
+			_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM tunnel WHERE id = $1`, id).Scan(&cnt)
+			if cnt == 0 {
+				s.hub.SendCommand(nodeID, "DeleteService", ws.DeleteServicesData{Services: []string{name}})
+			}
+		case strings.HasSuffix(name, "_tcp"), strings.HasSuffix(name, "_udp"):
+			// <fid>_<uid>_<utid>_tcp|udp → 查 forward;不存在删 tcp+udp(修正 Java 漏删 _udp 缺陷)
+			base := strings.TrimSuffix(strings.TrimSuffix(name, "_tcp"), "_udp")
+			if cleaned[base] {
+				continue
+			}
+			var cnt int64
+			_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM forward WHERE id = $1`, id).Scan(&cnt)
+			if cnt == 0 {
+				cleaned[base] = true
+				s.hub.SendCommand(nodeID, "DeleteService", ws.DeleteServicesData{
+					Services: []string{base + "_tcp", base + "_udp"},
+				})
+			}
+		}
+	}
+	for _, ch := range snap.Chains {
+		parts := strings.Split(ch.Name, "_")
+		id, err := strconv.ParseInt(parts[len(parts)-1], 10, 64)
+		if err != nil {
+			continue
+		}
+		var cnt int64
+		_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM tunnel WHERE id = $1`, id).Scan(&cnt)
+		if cnt == 0 {
+			s.hub.SendCommand(nodeID, "DeleteChains", ws.DeleteChainsData{Chain: ch.Name})
+		}
+	}
+	for _, l := range snap.Limiters {
+		id, err := strconv.ParseInt(l.Name, 10, 64)
+		if err != nil {
+			continue
+		}
+		var cnt int64
+		_ = s.pool.QueryRow(ctx, `SELECT COUNT(*) FROM speed_limit WHERE id = $1`, id).Scan(&cnt)
+		if cnt == 0 {
+			s.hub.SendCommand(nodeID, "DeleteLimiters", ws.DeleteLimitersData{Limiter: l.Name})
+		}
+	}
 }
 
 // entryNodeIDs 隧道入口节点(chain_type='1')

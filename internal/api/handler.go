@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -271,3 +272,6 @@ func (h *Handler) NotImplemented(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, errMsg("接口尚未实现"))
 }
+
+// nowMillis 当前毫秒时间戳
+func nowMillis() int64 { return time.Now().UnixMilli() }

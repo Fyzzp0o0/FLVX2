@@ -182,7 +182,120 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 			return err
 		}
 	}
-	// TODO(M4): type==2 时在各节点创建 chains_<id> 链与 <id>_tls 服务(AddChains/AddChainService)
+	// type==2 隧道:下发链与 TLS 服务(对应 TunnelServiceImpl.createTunnel 的 Gost 联动)
+	if dto.Type == 2 {
+		if err := s.deployChainServices(ctx, tunnelID, dto); err != nil {
+			// 回滚:清理已下发与 DB 记录
+			_, _ = s.pool.Exec(ctx, `DELETE FROM chain_tunnel WHERE tunnel_id = $1`, tunnelID)
+			_, _ = s.pool.Exec(ctx, `DELETE FROM tunnel WHERE id = $1`, tunnelID)
+			return err
+		}
+	}
+	return nil
+}
+
+// deployChainServices 下发 chains_<id> 链与 <id>_tls 服务(Java TunnelServiceImpl:145-232 逻辑)
+func (s *TunnelService) deployChainServices(ctx context.Context, tunnelID int64, dto TunnelCreate) error {
+	// 节点详情缓存
+	nodeMap := map[int64]*model.Node{}
+	getNode := func(id int64) (*model.Node, error) {
+		if n, ok := nodeMap[id]; ok {
+			return n, nil
+		}
+		n, err := s.nodes.GetByID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		nodeMap[id] = n
+		return n, nil
+	}
+	hopNodes := func(list []ChainTunnelIn) []ChainHopNode {
+		var out []ChainHopNode
+		for _, ct := range list {
+			n, _ := getNode(ct.NodeID)
+			if n == nil || ct.Port == nil {
+				continue
+			}
+			out = append(out, ChainHopNode{Inx: ct.Inx, Addr: n.ServerIP + ":" + strconv.FormatInt(*ct.Port, 10), Protocol: ct.Protocol})
+		}
+		return out
+	}
+	addChain := func(nodeID int64, strategy string, next []ChainHopNode) error {
+		if len(next) == 0 {
+			return nil
+		}
+		n, _ := getNode(nodeID)
+		iface := ""
+		if n != nil {
+			iface = n.InterfaceName
+		}
+		data := BuildChainData(tunnelID, strategy, iface, next)
+		dto := s.hub.SendCommand(nodeID, "AddChains", data)
+		if dto.Code != 0 {
+			return errors.New(dto.Msg)
+		}
+		return nil
+	}
+	addTLSService := func(nodeID int64, ct ChainTunnelIn) error {
+		n, err := getNode(ct.NodeID)
+		if err != nil || ct.Port == nil {
+			return errors.New("节点信息缺失")
+		}
+		hostNode, _ := getNode(nodeID)
+		iface := ""
+		if hostNode != nil {
+			iface = hostNode.InterfaceName
+		}
+		svc := BuildChainService(tunnelID, ct.ChainType, ct.Protocol, n, *ct.Port, iface)
+		dto := s.hub.SendCommand(nodeID, "AddService", []map[string]any{svc})
+		if dto.Code != 0 {
+			return errors.New(dto.Msg)
+		}
+		return nil
+	}
+
+	// 入口节点:链指向第一跳或出口
+	outHops := hopNodes(dto.OutNodeID)
+	for _, in := range dto.InNodeID {
+		next := outHops
+		if len(dto.ChainNodes) > 0 {
+			next = hopNodes(dto.ChainNodes[0])
+		}
+		strategy := "fifo"
+		if len(dto.ChainNodes) > 0 && len(dto.ChainNodes[0]) > 0 {
+			strategy = dto.ChainNodes[0][0].Strategy
+		}
+		if err := addChain(in.NodeID, strategy, next); err != nil {
+			return err
+		}
+	}
+	// 转发链节点:链指向下一跳或出口 + 自身 tls 服务
+	for i, group := range dto.ChainNodes {
+		next := outHops
+		if i+1 < len(dto.ChainNodes) {
+			next = hopNodes(dto.ChainNodes[i+1])
+		}
+		for _, ct := range group {
+			strategy := ct.Strategy
+			if strategy == "" {
+				strategy = "fifo"
+			}
+			if err := addChain(ct.NodeID, strategy, next); err != nil {
+				return err
+			}
+			ct.ChainType = 2
+			if err := addTLSService(ct.NodeID, ct); err != nil {
+				return err
+			}
+		}
+	}
+	// 出口节点:tls 服务
+	for _, out := range dto.OutNodeID {
+		out.ChainType = 3
+		if err := addTLSService(out.NodeID, out); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

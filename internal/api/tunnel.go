@@ -165,3 +165,20 @@ func (h *Handler) TunnelUserTunnel(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, ok(list))
 }
+
+// TunnelDiagnose 隧道诊断(逐跳 TcpPing)
+func (h *Handler) TunnelDiagnose(c *gin.Context) {
+	var req struct {
+		TunnelID int64 `json:"tunnelId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	results, err := h.tunnels.Diagnose(c.Request.Context(), req.TunnelID)
+	if err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(gin.H{"tunnelId": req.TunnelID, "results": results, "timestamp": nowMillis()}))
+}

@@ -58,18 +58,8 @@ func (h *Handler) ForwardUpdate(c *gin.Context) {
 		c.JSON(http.StatusOK, errCode(500, "参数错误"))
 		return
 	}
-	uid, name, roleID := currentUser(c)
-	// M3 简化:删除重建(端口/地址变化;属主校验在 DeleteByID);M4 将改为 UpdateService 语义
-	tunnelID := h.forwards.TunnelIDOf(c.Request.Context(), req.ID)
-	if tunnelID == 0 {
-		c.JSON(http.StatusOK, errMsg("转发不存在"))
-		return
-	}
-	if err := h.forwards.DeleteByID(c.Request.Context(), req.ID, uid, roleID); err != nil {
-		c.JSON(http.StatusOK, errMsg(err.Error()))
-		return
-	}
-	if err := h.forwards.Create(c.Request.Context(), req.Name, tunnelID, req.RemoteAddr, req.Strategy, req.InPort, uid, name, roleID); err != nil {
+	uid, _, roleID := currentUser(c)
+	if err := h.forwards.Update(c.Request.Context(), req.ID, uid, roleID, req.Name, req.RemoteAddr, req.Strategy, req.InPort); err != nil {
 		c.JSON(http.StatusOK, errMsg(err.Error()))
 		return
 	}
@@ -162,4 +152,22 @@ func (h *Handler) ForwardUpdateOrder(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, ok(nil))
+}
+
+// ForwardDiagnose 转发诊断(逐跳 TcpPing)
+func (h *Handler) ForwardDiagnose(c *gin.Context) {
+	var req struct {
+		ForwardID int64 `json:"forwardId" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, errCode(500, "参数错误"))
+		return
+	}
+	uid, _, roleID := currentUser(c)
+	results, err := h.forwards.Diagnose(c.Request.Context(), req.ForwardID, uid, roleID)
+	if err != nil {
+		c.JSON(http.StatusOK, errMsg(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, ok(gin.H{"forwardId": req.ForwardID, "results": results, "timestamp": nowMillis()}))
 }
