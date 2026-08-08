@@ -107,10 +107,6 @@ onMounted(load)
     <template #header-extra>
       <n-button type="primary" size="small" @click="showModal = true">新建用户</n-button>
     </template>
-<script lang="ts">
-import { defineComponent } from 'vue'
-export default defineComponent({})
-</script>
     <n-data-table :columns="columns" :data="rows" :bordered="false" size="small" :pagination="{ pageSize: 20 }" />
 
     <n-modal v-model:show="showModal" preset="card" :title="editing ? '编辑用户' : '新建用户'" style="width: 460px">
@@ -121,10 +117,6 @@ export default defineComponent({})
         <n-form-item label="转发上限"><n-input-number v-model:value="form.num" :min="0" /></n-form-item>
       </n-form>
       <template #footer><n-button type="primary" block @click="save">创建</n-button></template>
-<script lang="ts">
-import { defineComponent } from 'vue'
-export default defineComponent({})
-</script>
     </n-modal>
 
     <n-modal v-model:show="showAuthModal" preset="card" title="隧道授权" style="width: 560px">
@@ -137,10 +129,6 @@ export default defineComponent({})
         <n-form-item label="转发上限"><n-input-number v-model:value="authForm.num" :min="0" /></n-form-item>
       </n-form>
       <template #footer><n-button type="primary" block @click="saveAuth">授权</n-button></template>
-<script lang="ts">
-import { defineComponent } from 'vue'
-export default defineComponent({})
-</script>
     </n-modal>
   </n-card>
 </template>

@@ -19,7 +19,8 @@ const activeKey = computed(() => route.path)
 
 const renderIcon = (icon: any) => () => h(NIcon, null, { default: () => h(icon) })
 
-const menuOptions: MenuOption[] = [
+// 必须 computed:登录前后 roleId 变化时菜单动态重建(否则管理员菜单不出现)
+const menuOptions = computed<MenuOption[]>(() => [
   { label: '仪表盘', key: '/dashboard', icon: renderIcon(LayoutDashboard) },
   { label: '我的转发', key: '/forward', icon: renderIcon(ArrowLeftRight) },
   ...(auth.isAdmin
@@ -32,7 +33,7 @@ const menuOptions: MenuOption[] = [
       ]
     : []),
   { label: '个人中心', key: '/profile', icon: renderIcon(UserCircle2) }
-]
+])
 
 function logout() {
   auth.logout()

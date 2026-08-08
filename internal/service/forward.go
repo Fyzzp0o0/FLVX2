@@ -107,7 +107,7 @@ func (s *ForwardService) Create(ctx context.Context, name string, tunnelID int64
 			ports = append(ports, int(inPort))
 		}
 	} else {
-		var intersection []int
+		intersection := []int{}
 		for i, nid := range entryNodes {
 			avail, err := s.availablePorts(ctx, nid, 0)
 			if err != nil {
@@ -198,7 +198,7 @@ func (s *ForwardService) List(ctx context.Context, userID, roleID int64) ([]*For
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*ForwardWithTunnel
+	out := []*ForwardWithTunnel{}
 	for rows.Next() {
 		f := &ForwardWithTunnel{}
 		if err := rows.Scan(&f.ID, &f.Name, &f.TunnelID, &f.InIP, &f.TunnelName, &f.RemoteAddr, &f.Strategy,
@@ -206,7 +206,7 @@ func (s *ForwardService) List(ctx context.Context, userID, roleID int64) ([]*For
 			continue
 		}
 		// 入口端口(取该转发在任一入口节点的端口;多入口以逗号拼接)
-		var ports []string
+		ports := []string{}
 		prows, err := s.pool.Query(ctx, `SELECT port FROM forward_port WHERE forward_id = $1 ORDER BY id`, f.ID)
 		if err == nil {
 			for prows.Next() {
@@ -367,7 +367,7 @@ func (s *ForwardService) listByTunnelAndUser(ctx context.Context, tunnelID, user
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.Forward
+	out := []*model.Forward{}
 	for rows.Next() {
 		f := &model.Forward{}
 		if err := rows.Scan(&f.ID, &f.UserID, &f.UserName, &f.Name, &f.TunnelID, &f.RemoteAddr, &f.Strategy,
@@ -387,7 +387,7 @@ func (s *ForwardService) listByTunnel(ctx context.Context, tunnelID int64) ([]*m
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.Forward
+	out := []*model.Forward{}
 	for rows.Next() {
 		f := &model.Forward{}
 		if err := rows.Scan(&f.ID, &f.UserID, &f.UserName, &f.Name, &f.TunnelID, &f.RemoteAddr, &f.Strategy,
@@ -441,7 +441,7 @@ func (s *ForwardService) availablePorts(ctx context.Context, nodeID, excludeForw
 		}
 		rows.Close()
 	}
-	var out []int
+	out := []int{}
 	for _, p := range parsePorts(node.Port) {
 		if !used[p] {
 			out = append(out, p)
@@ -464,7 +464,7 @@ func intersect(a, b []int) []int {
 	for _, v := range b {
 		set[v] = true
 	}
-	var out []int
+	out := []int{}
 	for _, v := range a {
 		if set[v] {
 			out = append(out, v)

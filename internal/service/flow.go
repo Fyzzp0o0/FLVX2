@@ -41,7 +41,7 @@ func (s *FlowService) ProcessUpload(ctx context.Context, secret string, rawBody 
 	}
 	// ② 解密(失败按明文继续,与 Java 端一致)
 	payload, _ := s.crypto.Decrypt(secret, rawBody)
-	var items []FlowItem
+	items := []FlowItem{}
 	if err := json.Unmarshal(payload, &items); err != nil {
 		log.Printf("[flow] upload 解析失败: %v", err)
 		return "ok"
@@ -134,7 +134,7 @@ func (s *FlowService) checkLimits(ctx context.Context, userID, userTunnelID int6
 	tunnelOver := utIn+utOut >= utFlow*bytesPerGB || (utExp > 0 && utExp <= now) || utStatus != 1
 
 	if userOver || tunnelOver {
-		var forwards []model.Forward
+		forwards := []model.Forward{}
 		rows, err := s.pool.Query(ctx,
 			`SELECT id, user_id, user_name, name, tunnel_id, remote_addr, strategy, in_flow, out_flow, created_time, updated_time, status, inx
 			 FROM forward WHERE user_id = $1 AND status = 1`, userID)
@@ -263,7 +263,7 @@ func (s *FlowService) cleanOrphans(nodeID int64, snap *ConfigSnapshot) {
 
 // entryNodeIDs 隧道入口节点(chain_type='1')
 func (s *FlowService) entryNodeIDs(ctx context.Context, tunnelID int64) []int64 {
-	var ids []int64
+	ids := []int64{}
 	rows, err := s.pool.Query(ctx, `SELECT node_id FROM chain_tunnel WHERE tunnel_id = $1 AND chain_type = '1'`, tunnelID)
 	if err != nil {
 		return nil

@@ -111,7 +111,7 @@ func (s *ForwardService) Diagnose(ctx context.Context, forwardID, userID, roleID
 	if err != nil || len(links) == 0 {
 		return nil, errors.New("链路信息缺失")
 	}
-	var results []*DiagnosisResult
+	results := []*DiagnosisResult{}
 	targets := splitAddrs(f.RemoteAddr)
 	// 逐跳:node[i] → node[i+1];最后一跳节点 → 每个转发目标
 	for i, ln := range links {
@@ -153,7 +153,7 @@ func (s *TunnelService) Diagnose(ctx context.Context, tunnelID int64) ([]*Diagno
 	if err != nil || len(links) == 0 {
 		return nil, errors.New("链路信息缺失")
 	}
-	var results []*DiagnosisResult
+	results := []*DiagnosisResult{}
 	for i, ln := range links {
 		if i+1 < len(links) {
 			next := links[i+1]
@@ -184,7 +184,7 @@ func (s *TunnelService) Diagnose(ctx context.Context, tunnelID int64) ([]*Diagno
 
 // splitAddrs 逗号分隔目标
 func splitAddrs(remoteAddr string) []string {
-	var out []string
+	out := []string{}
 	for _, a := range strings.Split(remoteAddr, ",") {
 		if t := strings.TrimSpace(a); t != "" {
 			out = append(out, t)

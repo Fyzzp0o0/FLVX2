@@ -114,7 +114,7 @@ func (s *NodeService) List(ctx context.Context) ([]*model.Node, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.Node
+	out := []*model.Node{}
 	for rows.Next() {
 		n, err := scanNode(rows)
 		if err == nil {
@@ -155,7 +155,7 @@ func (s *NodeService) Delete(ctx context.Context, id int64, tunnels *TunnelServi
 	if err != nil {
 		return err
 	}
-	var tunnelIDs []int64
+	tunnelIDs := []int64{}
 	for rows.Next() {
 		var tid int64
 		if err := rows.Scan(&tid); err == nil {

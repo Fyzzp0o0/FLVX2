@@ -38,7 +38,7 @@ func (s *SpeedLimitService) Create(ctx context.Context, name string, speed int64
 	}
 	speedMBPS := ConvertBitsToMBPS(speed)
 	nodes := s.tunnelNodeIDs(ctx, tunnelID)
-	var success []int64
+	success := []int64{}
 	for _, nid := range nodes {
 		dto := s.hub.SendCommand(nid, "AddLimiters", BuildLimiterData(limitID, speedMBPS))
 		if dto.Code != 0 {
@@ -61,7 +61,7 @@ func (s *SpeedLimitService) List(ctx context.Context) ([]*model.SpeedLimit, erro
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.SpeedLimit
+	out := []*model.SpeedLimit{}
 	for rows.Next() {
 		sl := &model.SpeedLimit{}
 		if err := rows.Scan(&sl.ID, &sl.Name, &sl.Speed, &sl.TunnelID, &sl.TunnelName, &sl.CreatedTime, &sl.UpdatedTime, &sl.Status); err == nil {
@@ -125,7 +125,7 @@ func (s *SpeedLimitService) tunnelNodeIDs(ctx context.Context, tunnelID int64) [
 		return nil
 	}
 	defer rows.Close()
-	var ids []int64
+	ids := []int64{}
 	for rows.Next() {
 		var id int64
 		if rows.Scan(&id) == nil {

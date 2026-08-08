@@ -118,7 +118,7 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 	// 入口节点 IP
 	inIP := dto.InIP
 	if inIP == "" {
-		var ips []string
+		ips := []string{}
 		for _, ct := range dto.InNodeID {
 			n, err := s.nodes.GetByID(ctx, ct.NodeID)
 			if err == nil {
@@ -137,7 +137,7 @@ func (s *TunnelService) Create(ctx context.Context, dto TunnelCreate) error {
 		return err
 	}
 	// 组装 chain_tunnel 并分配端口(入口无端口,转发链/出口自动分配)
-	var chains []ChainTunnelIn
+	chains := []ChainTunnelIn{}
 	for _, ct := range dto.InNodeID {
 		ct.ChainType = 1
 		ct.TunnelID = tunnelID
@@ -210,7 +210,7 @@ func (s *TunnelService) deployChainServices(ctx context.Context, tunnelID int64,
 		return n, nil
 	}
 	hopNodes := func(list []ChainTunnelIn) []ChainHopNode {
-		var out []ChainHopNode
+		out := []ChainHopNode{}
 		for _, ct := range list {
 			n, _ := getNode(ct.NodeID)
 			if n == nil || ct.Port == nil {
@@ -306,7 +306,7 @@ func (s *TunnelService) List(ctx context.Context) ([]*TunnelDetail, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*TunnelDetail
+	out := []*TunnelDetail{}
 	for rows.Next() {
 		t := &model.Tunnel{}
 		if err := rows.Scan(&t.ID, &t.Name, &t.TrafficRatio, &t.Type, &t.Protocol, &t.Flow, &t.CreatedTime, &t.UpdatedTime, &t.Status, &t.InIP); err != nil {
@@ -369,7 +369,7 @@ func (s *TunnelService) Update(ctx context.Context, id int64, name string, flow 
 		rows, err := s.pool.Query(ctx,
 			`SELECT n.server_ip FROM chain_tunnel ct JOIN node n ON ct.node_id = n.id WHERE ct.tunnel_id = $1 AND ct.chain_type = '1'`, id)
 		if err == nil {
-			var ips []string
+			ips := []string{}
 			for rows.Next() {
 				var ip string
 				if rows.Scan(&ip) == nil {
@@ -466,7 +466,7 @@ func (s *TunnelService) GetNodePort(ctx context.Context, nodeID, excludeForwardI
 
 // parsePorts 解析端口串 "1000-2000,3000" → 升序去重
 func parsePorts(port string) []int {
-	var out []int
+	out := []int{}
 	seen := map[int]bool{}
 	for _, seg := range strings.Split(port, ",") {
 		parts := strings.SplitN(seg, "-", 2)
@@ -592,7 +592,7 @@ func (s *TunnelService) UserTunnels(ctx context.Context, userID, roleID int64) (
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.Tunnel
+	out := []*model.Tunnel{}
 	for rows.Next() {
 		t := &model.Tunnel{}
 		if err := rows.Scan(&t.ID, &t.Name, &t.TrafficRatio, &t.Type, &t.Protocol, &t.Flow, &t.CreatedTime, &t.UpdatedTime, &t.Status, &t.InIP); err == nil {
@@ -606,7 +606,7 @@ func scanUserTunnelDetails(rows interface {
 	Next() bool
 	Scan(...any) error
 }) ([]*UserTunnelDetail, error) {
-	var out []*UserTunnelDetail
+	out := []*UserTunnelDetail{}
 	for rows.Next() {
 		d := &UserTunnelDetail{}
 		if err := rows.Scan(&d.ID, &d.UserID, &d.TunnelID, &d.Flow, &d.Num, &d.FlowResetTime, &d.ExpTime, &d.SpeedID,

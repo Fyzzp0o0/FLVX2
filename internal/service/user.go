@@ -155,7 +155,7 @@ func (s *UserService) ListUsers(ctx context.Context) ([]*model.User, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []*model.User
+	out := []*model.User{}
 	for rows.Next() {
 		u, err := scanUser(rows)
 		if err == nil {
@@ -289,7 +289,7 @@ func (s *UserService) listForwardNames(ctx context.Context, userID int64) ([]for
 		return nil, err
 	}
 	defer rows.Close()
-	var out []forwardName
+	out := []forwardName{}
 	for rows.Next() {
 		var f forwardName
 		if err := rows.Scan(&f.Name, &f.TunnelID); err == nil {
@@ -301,7 +301,7 @@ func (s *UserService) listForwardNames(ctx context.Context, userID int64) ([]for
 
 // entryNodeIDs 隧道入口节点(chain_type='1')
 func entryNodeIDs(ctx context.Context, pool *pgxpool.Pool, tunnelID int64) []int64 {
-	var ids []int64
+	ids := []int64{}
 	rows, err := pool.Query(ctx, `SELECT node_id FROM chain_tunnel WHERE tunnel_id = $1 AND chain_type = '1'`, tunnelID)
 	if err != nil {
 		return nil
@@ -382,7 +382,7 @@ func (s *UserService) Package(ctx context.Context, userID int64) (*UserPackage, 
 	rows, err = s.pool.Query(ctx,
 		`SELECT id, user_id, flow, total_flow, time, created_time FROM statistics_flow WHERE user_id = $1 ORDER BY id DESC LIMIT 24`, userID)
 	if err == nil {
-		var list []*model.StatisticsFlow
+		list := []*model.StatisticsFlow{}
 		for rows.Next() {
 			st := &model.StatisticsFlow{}
 			if rows.Scan(&st.ID, &st.UserID, &st.Flow, &st.TotalFlow, &st.Time, &st.CreatedTime) == nil {

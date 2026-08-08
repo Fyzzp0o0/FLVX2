@@ -67,7 +67,7 @@ func (s *JobService) expireUsers(ctx context.Context, now time.Time) {
 	if err != nil {
 		return
 	}
-	var ids []int64
+	ids := []int64{}
 	for rows.Next() {
 		var id int64
 		if rows.Scan(&id) == nil {
@@ -91,7 +91,7 @@ func (s *JobService) expireUserTunnels(ctx context.Context, now time.Time) {
 		return
 	}
 	type ut struct{ id, uid, tid int64 }
-	var list []ut
+	list := []ut{}
 	for rows.Next() {
 		var u ut
 		if rows.Scan(&u.id, &u.uid, &u.tid) == nil {
@@ -160,7 +160,7 @@ func (s *JobService) SnapshotHourly(ctx context.Context) {
 		id          int64
 		total       int64
 	}
-	var users []u
+	users := []u{}
 	for rows.Next() {
 		var uu u
 		var inF, outF int64
