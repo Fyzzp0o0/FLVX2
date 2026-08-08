@@ -33,7 +33,9 @@ var mimeTypes = map[string]string{
 }
 
 // ServeIndex 返回 index.html(SPA 入口;优先 Vue 构建产物,缺失时回退占位页)
+// 入口页必须 no-cache:hash 文件可长期缓存,但 index.html 若被缓存会导致用户一直拿到旧版 JS
 func ServeIndex(c *gin.Context) {
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	if data, err := readDistFile("index.html"); err == nil {
 		c.Data(http.StatusOK, mimeTypes[".html"], data)
 		return
